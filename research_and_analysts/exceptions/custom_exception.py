@@ -9,7 +9,7 @@ class ResearchAnalystException(Exception):
         else:
             norm_msg = str(error_message)
         
-        exc_type, exc_value, exc_tb = None
+        exc_type = exc_value = exc_tb = None
 
         if error_details is None:
             exc_type, exc_value, exc_tb = sys.exc_info()
@@ -36,3 +36,20 @@ class ResearchAnalystException(Exception):
             self.traceback_str = ''
 
         super().__init__(self.__str__())
+
+    def __str__(self):
+        base = f"Error in [{self.file_name}] at line [{self.lineno}] | Message: {self.error_message}"
+        if self.traceback_str:
+            return f"{base}\nTraceback: \n{self.traceback_str}"
+        return base
+    
+    def __repr__(self):
+        return f"ResearchAnalystException(file={self.file_name!r},line={self.lineno}, message={self.error_message!r})"
+
+
+# if __name__ == "__main__":
+#     # Demo-1: generic exception -> wrap
+#     try:
+#         a = 1 / 0
+#     except Exception as e:
+#         raise ResearchAnalystException("Division failed", e) from e
