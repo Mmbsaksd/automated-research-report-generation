@@ -1,7 +1,6 @@
 import os
 import sys
 from pathlib import Path
-from dotenv import load_dotenv
 import json
 from dotenv import load_dotenv
 from research_and_analysts.utils.config_loader import load_config
@@ -10,6 +9,14 @@ from langchain_groq import ChatGroq
 from research_and_analysts.logger import GLOBAL_LOGGER as log
 from research_and_analysts.exceptions.custom_exception import ResearchAnalystException
 import asyncio
+
+
+# env_path = Path(__file__).resolve().parents[2] / ".env" # <-- CHANGE if .env is in a different location
+# if env_path.exists():
+#     load_dotenv(env_path)
+# else:
+# # fallback: try loading default .env in current working directory
+#     load_dotenv()
 
 class ApiKeyManager:
     def __init__(self):
@@ -22,9 +29,9 @@ class ApiKeyManager:
         }
         for key,val in self.api_keys.items():
             if val:
-                log.info(f"{key} loaded fom enviroment")
+                log.info(f"{key} loaded from environment")
             else:
-                log.warning(f"{key} is missing from enviroment")
+                log.warning(f"{key} is missing from environment")
 
     def get(self,key:str):
         return self.api_keys.get(key)
@@ -33,7 +40,7 @@ class ModelLoader:
     def __init__(self):
         self.api_key_mgr = ApiKeyManager()
         self.config = load_config()
-        log.info("YMAL config loaded", config_keys=list(self.config.keys()))
+        log.info("YAML config loaded", config_keys=list(self.config.keys()))
 
     def load_embeddings(self):
         try:
@@ -41,9 +48,9 @@ class ModelLoader:
             log.info("Loading embedding model", model=model_name)
 
             try:
-                asyncio.get_event_loop()
+                asyncio.get_running_loop()
             except Exception as e:
-                asyncio.set_event_loop(asyncio.new_event_loop)
+                asyncio.set_event_loop(asyncio.new_event_loop())
 
             return GoogleGenerativeAIEmbeddings(
                 model=model_name,
