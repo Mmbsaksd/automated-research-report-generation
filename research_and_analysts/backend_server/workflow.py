@@ -4,6 +4,10 @@ from datetime import datetime
 from typing import Optional
 from langgraph.types import Send
 
+current_dir = os.path.dirname(os.path.abspath(__file__))
+project_root = os.path.abspath(os.path.join(current_dir, "../../"))
+sys.path.append(project_root)
+
 from langgraph.graph import StateGraph, START, END
 from langgraph.checkpoint.memory import MemorySaver
 from langchain_core.messages import HumanMessage, SystemMessage, AIMessage
@@ -59,4 +63,8 @@ class AutonomousReportGenerator:
         pass
 
 if __name__ == "__main__":
-    pass
+    llm = ModelLoader().load_llm()
+    print(llm.invoke("hello").content)
+
+    report = AutonomousReportGenerator()
+    report.build_graph()
