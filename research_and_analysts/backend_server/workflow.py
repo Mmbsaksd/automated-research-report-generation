@@ -25,6 +25,8 @@ from research_and_analysts.schemas.models import(
     InterviewState,
     ResearchGraphState
 )
+from research_and_analysts.prompt_lib.prompts import *
+
 def build_interview_graph(llm, travily_search=None):
     memory = MemorySaver()
     def generate_question(state:InterviewState):
@@ -63,17 +65,37 @@ def build_interview_graph(llm, travily_search=None):
 from research_and_analysts.utils.model_loader import ModelLoader
 
 class AutonomousReportGenerator:
-    def __init__(self):
+    def __init__(self, llm):
+        self.llm = llm
+        self.memory = MemorySaver()
+        self.tavily_search = TavilySearchResults()
+
+    def create_analyst(self, state: GenerateAnalystsState):
+        
+        structured_llm = self.llm.with_structured_output(Perspectives)
+        analysts = structured_llm.invoke([
+            SystemMessage(content=CREATE_ANALYSTS_PROMPT),
+            HumanMessage(content="Generate the set of analysts.")
+            ]
+        )
+        return {"analysts":analysts.analyst}
+
+    def human_feedback(self, state:ResearchGraphState):
         pass
 
-    def create_analyst(self):
-        pass
 
-    def human_feedback(self):
-        pass
+    def write_report(self, state:ResearchGraphState):
+        sections = state.get("sections",[])
+        topic = state.get("topic","")
+        system_message = f"You are compiling a unified research report on{topic}"
 
-    def write_report(self):
-        pass
+        if not sections:
+            sections = ["No sections generated - please verify interview stage."]
+        report = self.llm.invoke([
+            SystemMessage(content=system_message),
+            HumanMessage(content="\n\n".join(sections))
+        ])
+        return {"content": report.content}
 
     def write_introduction(self):
         pass
@@ -95,6 +117,28 @@ class AutonomousReportGenerator:
 
     def build_graph(self):
         builder = StateGraph(ResearchGraphState)
+
+        interview_graph = build_interview_graph(self.llm, self.tavily_search)
+
+        def initial_all_interview(state:ResearchGraphState):
+            topic = state["topic"]
+            analysts = state.get("analysts",[])
+            if not analysts:
+                print("No analysts found - skipping interviewa.")
+                return(END)
+            return [
+                Send(
+                    "conduct_interview",{
+                        "analyst":analyst,
+                        "messages": [HumanMessage(content=f"So let's discuss about {topic}.")],
+                        "max_num_turn":2,
+                        "context":[],
+                        "interview": "",
+                        "sections":[],
+                    }
+                )
+                for analyst in analysts
+            ]
 
         builder.add_node("create_analyst", self.create_analyst)
         builder.add_node("human_feedback", self.human_feedback)
@@ -121,5 +165,28 @@ if __name__ == "__main__":
     llm = ModelLoader().load_llm()
     print(llm.invoke("hello").content)
 
-    report = AutonomousReportGenerator()
-    report.build_graph()
+    reporter = AutonomousReportGenerator()
+    graph = reporter.build_graph()
+    topic = ""
+
+    thread = {"configurable":{"thread_id":"1"}}
+    for _ in graph.stream({"topic":topic, "max_analyst":3}, thread, stream_mode="values"):
+        pass
+
+    state = graph.get_state(thread)
+    feedback = input("\n Enter your feedback or press Enter to eontinue as is: ").strip()
+
+    graph.update_state(thread,{"human_analyst_feedback":feedback}, as_node="human_feedback")
+
+    for _ in graph.stream(None, thread, stream_mode="values"):pass
+
+    final_state = graph.get_state(thread)
+    final_report = final_state.values.get("final_report")
+
+    if final_report:
+        reporter.save_report(final_report,"topic","docx")
+        reporter.save_report(final_report,"topic","pdf")
+    else:
+        print("No Report Content Generated")
+
+
