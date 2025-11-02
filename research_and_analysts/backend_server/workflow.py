@@ -146,7 +146,7 @@ class AutonomousReportGenerator:
 
         formatted_str_sections = "\n\n".join([f"{section}" for section in sections])
 
-        instructions = S.format(topic=topic, formatted_str_sections = formatted_str_sections)
+        instructions = INTRO_CONCLUSION_INSTRUCTIONS.format(topic=topic, formatted_str_sections = formatted_str_sections)
         intro = llm.invoke([SystemMessage(content=instructions)]+[HumanMessage(content=f"write the report introduction")])
         return {'introduction':intro.content}
 
@@ -157,8 +157,11 @@ class AutonomousReportGenerator:
         pass
 
     def save_report(self,final_report:str, topic:str, format:str="docx", save_dir : str=None):
+        import re
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         safe_topic = re.sub(r'[\\/*?:<>|]',"_", topic)
         file_name = f"{safe_topic.replace(' ','_')}_{timestamp}.{format}"
+
         if save_dir is None:
             save_dir = os.path.join(os.getcwd(), "generated_report")
         os.makedirs(save_dir, exist_ok=True)
@@ -176,9 +179,36 @@ class AutonomousReportGenerator:
 
     def _save_as_docs(self, text:str, file_path:str):
         doc = Document()
+        for line in text.split("\n"):
+            if line.startswith("## "):
+                doc.add_heading(line[3:], level=2)
+            elif line.startswith("# "):
+                doc.add_heading(line[2:], level=1)
+            else:
+                doc.add_heading(line[4:],level=3)
+        doc.save(file_path)
 
-    def _save_as_pdf(self):
-        pass
+    def _save_as_pdf(self, text:str, file_path:str):
+        c = canvas.Canvas(file_path, pagesize=letter)
+        width, height = letter
+        x,y = 50, height-50
+        for line in text.split("\n"):
+            if not line.strip():
+                y -=15
+                continue
+            if y < 50:
+                c.showPage()
+                y = height - 50
+            elif line.startswith("# "):
+                c.setFont("Helvetoca-Bold",14)
+                line = line[2:]
+            elif line.startswith("## "):
+                c.setFont("Helvetoca-Bold",12)
+                line = line[3:]
+            else:
+                c.setFont("Helvetoca-Bold",10)
+            c.drawString(x,y,line.strip())
+        c.save()
 
     def build_graph(self):
         builder = StateGraph(ResearchGraphState)
