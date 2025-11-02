@@ -12,3 +12,4 @@ wheels/
 .env/
 .env
 logs
+generated_report/

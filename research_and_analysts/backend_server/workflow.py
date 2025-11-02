@@ -121,7 +121,7 @@ class AutonomousReportGenerator:
             HumanMessage(content="Generate the set of analysts.")
             ]
         )
-        return {"analysts":analysts.analyst}
+        return {"analysts":analysts.analysts}
 
     def human_feedback(self, state:ResearchGraphState):
         pass
@@ -140,7 +140,7 @@ class AutonomousReportGenerator:
         ])
         return {"content": report.content}
 
-    def write_introduction(self):
+    def write_introduction(self, state:ResearchGraphState):
         sections = state["sections"]
         topic = state["topic"]
 
@@ -150,11 +150,33 @@ class AutonomousReportGenerator:
         intro = llm.invoke([SystemMessage(content=instructions)]+[HumanMessage(content=f"write the report introduction")])
         return {'introduction':intro.content}
 
-    def write_conclusion(self):
-        pass
+    def write_conclusion(self, state:ResearchGraphState):
+        sections = state["sections"]
+        topic = state["topic"]
 
-    def finalize_report(self):
-        pass
+        formatted_str_sections = "\n\n".join([f"{section}" for section in sections])
+
+        instructions = INTRO_CONCLUSION_INSTRUCTIONS.format(topic = topic, formatted_str_sections = formatted_str_sections)
+        conclusion = llm.invoke([instructions]+[HumanMessage(content=f"write the report conclusion")])
+        return {'conclusion':conclusion.content}
+
+    def finalize_report(self, state:ResearchGraphState):
+        content = state["content"]
+
+        if content.startswith("## Insights"):
+            content =  content.strip("## Insights")
+        if "## Sources" in content:
+            try:
+                content, sources = content.split("\n## Sources\n")
+            except:
+                sources = None
+        else:
+            sources = None
+
+        final_report = state["introduction"] + "\n\n---\n\n" + content + "\n\n --- \n\n" + state["conclusion"]
+        if sources is not None:
+            final_report += "\n\n## Sources\n" + sources
+        return {"final_report": final_report}
 
     def save_report(self,final_report:str, topic:str, format:str="docx", save_dir : str=None):
         import re
@@ -200,13 +222,13 @@ class AutonomousReportGenerator:
                 c.showPage()
                 y = height - 50
             elif line.startswith("# "):
-                c.setFont("Helvetoca-Bold",14)
+                c.setFont("Helvetica-Bold",14)
                 line = line[2:]
             elif line.startswith("## "):
-                c.setFont("Helvetoca-Bold",12)
+                c.setFont("Helvetica-Bold",12)
                 line = line[3:]
             else:
-                c.setFont("Helvetoca-Bold",10)
+                c.setFont("Helvetica-Bold",10)
             c.drawString(x,y,line.strip())
         c.save()
 
@@ -241,7 +263,7 @@ class AutonomousReportGenerator:
         builder.add_node("write_report",self.write_report)
         builder.add_node("write_introduction",self.write_introduction)
         builder.add_node("write_conclusion",self.write_conclusion)
-        builder.add_node("write_conclusion",self.finalize_report)
+        builder.add_node("finalize_report",self.finalize_report)
 
         #Edge
         builder.add_edge(START,"create_analyst")
@@ -262,7 +284,7 @@ if __name__ == "__main__":
 
     reporter = AutonomousReportGenerator(llm)
     graph = reporter.build_graph()
-    topic = ""
+    topic = "How can generative AI can help us to play the cricket?"
 
     thread = {"configurable":{"thread_id":"1"}}
     for _ in graph.stream({"topic":topic, "max_analyst":3}, thread, stream_mode="values"):
