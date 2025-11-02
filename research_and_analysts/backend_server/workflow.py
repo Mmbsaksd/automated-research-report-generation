@@ -1,4 +1,5 @@
 import os
+import re
 import sys
 from datetime import datetime
 from typing import Optional
@@ -23,26 +24,66 @@ from research_and_analysts.schemas.models import(
     Perspectives,
     GenerateAnalystsState,
     InterviewState,
-    ResearchGraphState
+    ResearchGraphState,
+    SearchQuery
 )
 from research_and_analysts.prompt_lib.prompts import *
+
 
 def build_interview_graph(llm, travily_search=None):
     memory = MemorySaver()
     def generate_question(state:InterviewState):
-        pass
+        analyst = state["analyst"]
+        messages = state["messages"]
+        context = state["context"]
+
+        system_message = ANALYST_ASK_QUESTIONS.format(goals=analyst.persona,context=context)
+        answer = llm.invoke([SystemMessage(content=system_message)]+messages)
+
+        answer.name = "expert"
+
+        return {"messages":[answer]}
 
     def search_web(state:InterviewState):
-        pass
+        structured_llm = llm.with_structured_output(SearchQuery)
+        search_query = structured_llm.invoke([GENERATE_SEARCH_QUERY]+state["messages"])
+
+        search_docs = travily_search.invoke(search_query.search_query)
+        formatted_search_docs = "\n\n---\n\n".join(
+            [
+                f'<Document href="{doc["url"]}"/>\n{doc["content"]}\n</Document>'
+                for doc in search_docs
+            ]
+        )
+        return {"context": [formatted_search_docs]}
 
     def generate_answer(state:InterviewState):
-        pass
+        analyst = state["analyst"]
+        messages = state["messages"]
+        context = state["context"]
+
+        system_message = GENERATE_ANSWERS.format(goals=analyst.persona,context=context)
+        answer = llm.invoke([SystemMessage(content=system_message)]+messages)
+
+        answer.name = "expert"
+
+        return {"messages":[answer]}
 
     def save_interview(state:InterviewState):
-        pass
+        messages = state["messages"]
+
+        interview = get_buffer_string(messages)
+
+        return {"interview":interview}
 
     def write_section(state:InterviewState):
-        pass
+        context = state["context"]
+        analyst = state["analyst"]
+
+        system_message = WRITE_SECTION.format(focus=analyst.description)
+        section = llm.invoke([SystemMessage(content=system_message)]+[HumanMessage(content=f"Use this source to write your section: {context}")])
+
+        return {"sections":[section.content]}
 
     builder = StateGraph(InterviewState)
     builder.add_node("ask_question", generate_question)
@@ -68,7 +109,9 @@ class AutonomousReportGenerator:
     def __init__(self, llm):
         self.llm = llm
         self.memory = MemorySaver()
-        self.tavily_search = TavilySearchResults()
+        self.tavily_search = TavilySearchResults(
+            travily_api_key = "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"
+        )
 
     def create_analyst(self, state: GenerateAnalystsState):
         
@@ -98,7 +141,14 @@ class AutonomousReportGenerator:
         return {"content": report.content}
 
     def write_introduction(self):
-        pass
+        sections = state["sections"]
+        topic = state["topic"]
+
+        formatted_str_sections = "\n\n".join([f"{section}" for section in sections])
+
+        instructions = S.format(topic=topic, formatted_str_sections = formatted_str_sections)
+        intro = llm.invoke([SystemMessage(content=instructions)]+[HumanMessage(content=f"write the report introduction")])
+        return {'introduction':intro.content}
 
     def write_conclusion(self):
         pass
@@ -106,11 +156,26 @@ class AutonomousReportGenerator:
     def finalize_report(self):
         pass
 
-    def save_report(self):
-        pass
+    def save_report(self,final_report:str, topic:str, format:str="docx", save_dir : str=None):
+        safe_topic = re.sub(r'[\\/*?:<>|]',"_", topic)
+        file_name = f"{safe_topic.replace(' ','_')}_{timestamp}.{format}"
+        if save_dir is None:
+            save_dir = os.path.join(os.getcwd(), "generated_report")
+        os.makedirs(save_dir, exist_ok=True)
 
-    def _save_as_docs(self):
-        pass
+        file_path = os.path.join(save_dir, file_name)
+        if format == "docx":
+            self._save_as_docs(final_report, file_path)
+        elif format == "pdf":
+            self._save_as_pdf(final_report, file_path)
+        else:
+            raise ValueError("Invalid format. Use 'docx' or 'pdf'.")
+
+        print(f"Report saved: {file_path}")
+        return file_path
+
+    def _save_as_docs(self, text:str, file_path:str):
+        doc = Document()
 
     def _save_as_pdf(self):
         pass
@@ -165,7 +230,7 @@ if __name__ == "__main__":
     llm = ModelLoader().load_llm()
     print(llm.invoke("hello").content)
 
-    reporter = AutonomousReportGenerator()
+    reporter = AutonomousReportGenerator(llm)
     graph = reporter.build_graph()
     topic = ""
 
