@@ -18,9 +18,11 @@ from research_and_analysts.logger import GLOBAL_LOGGER
 from research_and_analysts.exceptions.custom_exception import ResearchAnalystException
 
 class InterviewGraphBuilder:
-    def __init__(self, llm):
+    def __init__(self, llm, tavily_search):
+        self.llm = llm
         self.logger = GLOBAL_LOGGER.bind(module="InterviewGraphBuilder")
         self.memory = MemorySaver()
+        self.tavily_search = tavily_search
 
     def _generate_question(self, state:InterviewState):
         pass
@@ -68,8 +70,12 @@ class InterviewGraphBuilder:
 #     llm = ModelLoader().load_llm()
 #     interview = InterviewGraphBuilder(llm)
 #     graph = interview.build()
-#     display(Image(graph.get_graph(xray=1).draw_mermaid_png()))
-#     mermaid = graph.get_graph(xray=1).draw_mermaid()
-#     print(mermaid)
+#     img_bytes = graph.get_graph(xray=1).draw_mermaid_png()
+#     out_path = os.path.join(project_root,"interview.png")
+
+#     with open(out_path,"wb") as f:
+#         f.write(img_bytes)
+#     print("Saved graph image to: ", out_path)
+
 
 
