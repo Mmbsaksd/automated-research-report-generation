@@ -26,6 +26,11 @@ from research_and_analysts.schemas.models import (
 )
 from research_and_analysts.utils.model_loader import ModelLoader
 from research_and_analysts.workflows.interview_workflow import InterviewGraphBuilder
+from research_and_analysts.prompt_lib.prompt_locator import(
+    CREATE_ANALYSTS_PROMPT,
+    INTRO_CONCLUSION_INSTRUCTIONS,
+    REPORT_WRITER_INSTRUCTIONS,
+)
 from research_and_analysts.logger import GLOBAL_LOGGER
 from research_and_analysts.exceptions.custom_exception import ResearchAnalystException
 
@@ -45,14 +50,29 @@ class AutonomousReportGenerator:
 
         try:
             self.logger.info("Createing analyst personas", topic=topic)
-            structured_llm = self.llm.with_structured_output(Perspectives)system_prompt = CREA
+            structured_llm = self.llm.with_structured_output(Perspectives)
+            system_prompt = CREATE_ANALYSTS_PROMPT.render(
+                topic = topic,
+                max_analysts = max_analysts,
+                human_analyst_feedback = human_analyst_feedback
+            )
+            analysts = structured_llm.invoke([
+                SystemMessage(content=system_prompt),
+                HumanMessage(content="Generate the set of analysts."),
+            ])
+            self.logger.info("Analyst created", count = len(analysts.analysts))
+            return {"analysts":analysts.analysts}
 
         except Exception as e:
             self.logger.error("Error creating analysts", error=str(e))
             raise ResearchAnalystException("Failed to create analysts", e)
 
     def human_feedback(self, state:ResearchGraphState):
-        pass
+        try:
+            self.logger.info("Awaiting human feedback")
+        except Exception as e:
+            self.logger.error("Error during feedback stage", error = str(e))
+            raise ResearchAnalystException("Human feedback node failed", e)
 
     def write_report(self, state:ResearchGraphState):
         pass
