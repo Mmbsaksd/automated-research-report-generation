@@ -26,3 +26,39 @@ from research_and_analysts.schemas.models import (
 )
 from research_and_analysts.utils.model_loader import ModelLoader
 from research_and_analysts.workflows.interview_workflow import InterviewGraphBuilder
+from research_and_analysts.logger import GLOBAL_LOGGER
+from research_and_analysts.exceptions.custom_exception import ResearchAnalystException
+
+class AutonomousReportGenerator:
+    def __init__(self,llm):
+        self.llm = llm
+        self.memory = MemorySaver()
+        self.tavily_search = TavilySearchResults(
+            travily_api_key = "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"
+        )
+        self.logger = GLOBAL_LOGGER.bind(module="AutonomousReportGenerator")
+    
+    def create_analyst(self, state: ResearchGraphState):
+        pass
+
+    def human_feedback(self, state:ResearchGraphState):
+        pass
+
+
+    def build_graph(self):
+        try:
+            self.logger.info("Building report generation graph")
+            builder = StateGraph(ResearchGraphState)
+            interview_graph = InterviewGraphBuilder(self.llm, self.tavily_search).build()
+
+            def initiate_all_interview(state: ResearchGraphState):
+                pass
+
+            builder.add_node("create_analyst", self.create_analyst)
+            builder.add_node("human_feedback", self.human_feedback)
+            builder.add_node
+
+
+        except Exception as e:
+            self.logger.error("Error building report graph", error=str(e))
+            raise ResearchAnalystException("Failed to build report generation graph", e)
