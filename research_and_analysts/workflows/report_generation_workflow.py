@@ -41,6 +41,15 @@ class AutonomousReportGenerator:
     def create_analyst(self, state: ResearchGraphState):
         topic = state['topic']
         max_analysts = state['max_analysts']
+        human_analyst_feedback = state.get("human_analyst_feedback","")
+
+        try:
+            self.logger.info("Createing analyst personas", topic=topic)
+            structured_llm = self.llm.with_structured_output(Perspectives)system_prompt = CREA
+
+        except Exception as e:
+            self.logger.error("Error creating analysts", error=str(e))
+            raise ResearchAnalystException("Failed to create analysts", e)
 
     def human_feedback(self, state:ResearchGraphState):
         pass
