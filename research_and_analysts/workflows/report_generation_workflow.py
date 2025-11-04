@@ -39,9 +39,22 @@ class AutonomousReportGenerator:
         self.logger = GLOBAL_LOGGER.bind(module="AutonomousReportGenerator")
     
     def create_analyst(self, state: ResearchGraphState):
-        pass
+        topic = state['topic']
+        max_analysts = state['max_analysts']
 
     def human_feedback(self, state:ResearchGraphState):
+        pass
+
+    def write_report(self, state:ResearchGraphState):
+        pass
+
+    def write_introduction(self, state:ResearchGraphState):
+        pass
+
+    def write_conclusion(self, state:ResearchGraphState):
+        pass
+
+    def finalize_report(self, state:ResearchGraphState):
         pass
 
 
@@ -56,8 +69,29 @@ class AutonomousReportGenerator:
 
             builder.add_node("create_analyst", self.create_analyst)
             builder.add_node("human_feedback", self.human_feedback)
-            builder.add_node
+            builder.add_node("generate_answer", interview_graph)
+            builder.add_node("write_report", self.write_report)
+            builder.add_node("write_introduction", self.write_introduction)
+            builder.add_node("write_conclusion", self.write_conclusion)
+            builder.add_node("finalize_report", self.finalize_report)
 
+            builder.add_edge(START, "create_analyst")
+            builder.add_edge("create_analyst", "human_feedback")
+            builder.add_conditional_edges(
+                "human_feedback",
+                initiate_all_interview,
+                ["conduct_interview", END]
+            )
+            builder.add_edge("conduct_interview", "write_report")
+            builder.add_edge("conduct_interview", "write_introduction")
+            builder.add_edge("conduct_interview", "write_conclusion")
+
+            builder.add_edge(["write_report", "write_introduction", "write_conclusion"],"final_report")
+            builder.add_edge("final_report", END)
+
+            graph = builder.compile(interrupt_before=["human_feedback"], checkpointer=self.memory)
+            self.logger.info("Report generation graph built successfully")
+            return graph
 
         except Exception as e:
             self.logger.error("Error building report graph", error=str(e))
