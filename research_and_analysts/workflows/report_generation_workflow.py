@@ -75,13 +75,62 @@ class AutonomousReportGenerator:
             raise ResearchAnalystException("Human feedback node failed", e)
 
     def write_report(self, state:ResearchGraphState):
-        pass
+        sections = state.get("sections","")
+        topic = state.get("topic","")
+        
+        try:
+            if not sections:
+                sections = ["No sections generated - please verify interview stage"]
+            self.logger.info("Writing report", topic=topic)
+            system_prompt = REPORT_WRITER_INSTRUCTIONS.render(topic=topic)
+            report = self.llm.invoke(
+                [SystemMessage(content=system_prompt)]+
+                 [HumanMessage(content="\n\n".join(sections))]
+            )
+            self.logger.info("Report written successfully")
+            return {"content":report.content}
+        except Exception as e:
+            self.logger.error("Error writing main report", error = str(e))
+            raise ResearchAnalystException("Failed to write main report",e)
 
     def write_introduction(self, state:ResearchGraphState):
-        pass
+        try:
+            sections = state['sections']
+            topic = state['topic']
+            formatted_str_sections = "\n\n".join([f"{s}" for s in sections])
+            self.logger.info("Generating introductions", topic=topic)
+            system_prompt = INTRO_CONCLUSION_INSTRUCTIONS.render(
+                topic=topic, formatted_str_sections = formatted_str_sections
+            )
+            intro = self.llm.invoke(
+                [SystemMessage(content=system_prompt)]+
+                [HumanMessage(content="Write report introduction")]
+            )
+            self.logger.info("Introduction generated", length=len(intro.content))
+            return {"introduction":intro.content}
+        except Exception as e:
+            self.logger.error("Error generating introduction", error = str(e))
+            raise ResearchAnalystException("Failed to generate introduction", e)
 
     def write_conclusion(self, state:ResearchGraphState):
-        pass
+        try:
+            sections = state["sections"]
+            topic = state["topic"]
+            formatted_str_sections = "\n\n".join(f"{s}" for s in sections)
+            self.logger.info("Generating conclusion", topic=topic)
+            system_prompt = INTRO_CONCLUSION_INSTRUCTIONS.render(
+                topic=topic,
+                formatted_str_sections=formatted_str_sections
+            )
+            conclusion = self.llm.invoke(
+                [SystemMessage(content=system_prompt)]+
+                [HumanMessage(content="Write the report conclusion")]
+            )
+            self.logger.info("Conclusion generated", length = len(conclusion.content))
+            return {"conclusion":conclusion.content}
+        except Exception as e:
+            self.logger.info("Error generating conclusion", error=str(e))
+            raise ResearchAnalystException("Failed to generate conclusion", e)
 
     def finalize_report(self, state:ResearchGraphState):
         pass

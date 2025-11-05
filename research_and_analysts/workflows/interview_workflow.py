@@ -142,6 +142,7 @@ class InterviewGraphBuilder:
 
         except Exception as e:
             self.logger.error("Error building interview graph", error=str(e))
+            raise ResearchAnalystException("Failed to build interview graph workflow", e)
 
 # if __name__ == "__main__":
 #     llm = ModelLoader().load_llm()
