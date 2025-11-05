@@ -72,13 +72,49 @@ class InterviewGraphBuilder:
             raise ResearchAnalystException("Failed during web search excecution", e)
 
     def _generate_answer(self, state:InterviewState):
-        pass
+        analyst = state['analyst']
+        messages = state['messages']
+        context = state.get('context',["[No context available.]"])
+
+        try:
+            self.logger.info("Generating expert answer", analyst=analyst.name)
+            system_prompt = GENERATE_ANSWERS.render(goals = analyst.persona, context=context)
+            answer = self.llm.invoke([SystemMessage(content=system_prompt)]+messages)
+            answer.name = "expert"
+            self.logger.info("Expert answer generated successfully", preview = answer.content[:200])
+            return {"messages":[answer]}
+        except Exception as e:
+            self.logger.info("Error generating expert answer", error=str(e))
+            raise ResearchAnalystException("Failed to generate expert answer", e)
 
     def _save_interview(self, state:InterviewState):
-        pass
+        try:
+            messages = state["messages"]
+            interview = get_buffer_string(messages)
+            self.logger.info("Interview transcription saved", message_count = len(messages))
+            return {"interview":interview}
+        
+        except Exception as e:
+            self.logger.error("Error saving interview transcription", error=str(e))
+            raise ResearchAnalystException("Failed to saveinterview transcription", e)
 
     def _write_section(self, state:InterviewState):
-        pass
+        context = state.get("context", ["[No context available.]"])
+        analyst = state['analyst']
+
+        try:
+            self.logger.info("Generating report section", analyst=analyst.name)
+            system_prompt = WRITE_SECTION.render(focus=analyst.description)
+            section = self.llm.invoke(
+                [SystemMessage(content=system_prompt)]+
+                [HumanMessage(content=f"Use this source to write your section: {context}")]
+            )
+            self.logger.info("Report section generated successfully", length = len(section.content))
+            return {"sections":[section.content]}
+        
+        except Exception as e:
+            self.logger.error("Error writing report section", error=str(e))
+            raise ResearchAnalystException("Failed to generate report section", e)
 
     def build(self):
         try:
