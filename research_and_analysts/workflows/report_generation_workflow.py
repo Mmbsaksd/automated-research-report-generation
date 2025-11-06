@@ -172,7 +172,7 @@ class AutonomousReportGenerator:
             report_folder = os.path.join(root_dir, base_name)
             os.makedirs(report_folder, exist_ok=True)
 
-            file_path = os.path.join(report_folder, f{base_name}.{format})
+            file_path = os.path.join(report_folder, f"{base_name}.{format}")
 
             if format == "docs":
                 self._save_as_docx(final_report, file_path)
