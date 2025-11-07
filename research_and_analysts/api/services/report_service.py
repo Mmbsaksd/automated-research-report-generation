@@ -42,8 +42,33 @@ class ReportService:
             raise ResearchAnalystException("Failed to submit feedback", e)
 
     def get_report_status(self, thread_id:str):
-        pass
-    
+        try:
+            thread = {"configurable":{"thread_id":thread_id}}
+            state = self.graph.get_state(thread)
+            final_report = state.values.get('final_report')
+            topic = state.values.get("topic","AI_Report")
+
+            if final_report:
+                file_docx = self.reporter.save_report(final_report, topic,"docx")
+                file_pdf = self.reporter.save_report(final_report, topic, "pdf")
+                return {
+                    "status":"completed",
+                    "docx_path":file_docx,
+                    "pdf_path":file_pdf
+                }
+            return {"status":"progress"}
+        except Exception as e:
+                self.logger.error("Error getting report status", error=str(e))
+                raise ResearchAnalystException("Failed to get report status", e)
+        
     @staticmethod
     def download_file(file_name:str):
-        pass
+        report_dir = os.path.join(os.getcwd(),"generated_report")
+        for root, _, files in os.walk(report_dir):
+            if file_name in files:
+                return FileResponse(
+                    path=os.path.join(root, file_name),
+                    filename= file_name,
+                    media_type= "application/octet-stream"
+                )
+        return {"error":f"File {file_name} not found"}
