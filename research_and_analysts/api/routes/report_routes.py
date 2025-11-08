@@ -33,3 +33,73 @@ async def login(request:Request, username:str = Form(...), password:str = Form(.
         "login.html",
         {"request":request, "error":"Invalid username or password"}
     )
+
+@router.get("/signup", response_class=HTMLResponse)
+async def show_signup(request:Request):
+    return request.app.templates.TemplateResponse("signup.html",{"request":request})
+
+@router.post("/signup", response_class=HTMLResponse)
+async def signup(request: Request, username:str = Form(...), password:str = Form(...)):
+    db = next(get_db())
+    existing_user = db.query(User).filter(User.username==username).first()
+    if existing_user:
+        return request.app.templates.TemplateResponse(
+            "signup.html",{"request":request, "error":"User already exists"}
+        )
+    hashed_pw = hash_password(password)
+    new_user = User(username=username, password = hashed_pw)
+    db.add(new_user)
+    db.commit()
+    db.refresh(new_user)
+    return RedirectResponse(url="/", status_code=302)
+
+@router.get("/dashboard", response_class=HTMLResponse)
+async def dashboard(request:Request):
+    session_id = request.cookies.get("session_id")
+    if session_id not in SESSION:
+        return RedirectResponse(url="/")
+    return request.app.templates.TemplateResponse("dashboard.html", {"request":request, "user":SESSION[session_id]})
+
+@router.post("/generate_report", response_class=HTMLResponse)
+async def generate_report(request:Request, topic:str = Form(...)):
+    service = ReportService()
+    result = service.start_report_generation(topic, 3)
+    thread_id = result['thread_id']
+
+    return request.app.templates.TemplateResponse(
+        "report_progress.html",
+        {
+            "request":request,
+            "topic":topic,
+            "feedback":"",
+            "thread_id":thread_id,
+        }
+    )
+
+@router.post("/submit_feedback", response_class=HTMLResponse)
+async def submit_feedback(request:Request, topic:str = Form(...), feedback:str = Form(...), thread_id:str =Form(...)):
+    service = ReportService()
+    service.submit_feedback(thread_id, feedback)
+
+    result = service.get_report_status(thread_id)
+    doc_path = result.get("docx_path")
+    pdf_path = result.get("pdf_path")
+
+    return request.app.templates.TemplateResponse(
+        "report_progress.html",
+        {
+            "request":request,
+            "topic":topic,
+            "feedback":feedback,
+            "doc_path": doc_path,
+            "pdf_path":pdf_path,
+            "thread_id":thread_id,
+        }
+    )
+@router.get("/download/{file_name}", response_class=HTMLResponse)
+async def download_report(file_name:str):
+    service = ReportService()
+    file_response = service.download_file(file_name)
+    if file_response:
+        return file_response
+    return {"error":f"File {file_name} not found"}
