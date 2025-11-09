@@ -160,7 +160,7 @@ class AutonomousReportGenerator:
             self.logger.error("Error finalizing report", error=str(e))
             raise ResearchAnalystException("Failed to finalize report", e)
         
-    def save_report(self, final_report:str, topic:str):
+    def save_report(self, final_report:str, topic:str, format:str = "docx"):
         try:
             self.logger.info("Saving report", topic=topic, format = format)
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -174,7 +174,7 @@ class AutonomousReportGenerator:
 
             file_path = os.path.join(report_folder, f"{base_name}.{format}")
 
-            if format == "docs":
+            if format == "docx":
                 self._save_as_docx(final_report, file_path)
             elif format == "pdf":
                 self._save_as_pdf(final_report, file_path)

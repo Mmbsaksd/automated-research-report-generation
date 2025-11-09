@@ -34,8 +34,9 @@ class ReportService:
             thread = {"configurable":{"thread_id":thread_id}}
             self.graph.update_state(thread, {"human_analyst_feedback":feedback}, as_node="human_feedback")
             self.logger.info("Feedback updated", thread_id=thread_id)
-            for _ in self.graph.stream(None, thread, stream_node="values"):
-                return {"message":"Feedback processed successfully"}
+            for _ in self.graph.stream(None, thread, stream_mode="values"):
+                pass
+            return {"message":"Feedback processed successfully"}
             
         except Exception as e:
             self.logger.error("Error submitting feedback", error=str(e))
