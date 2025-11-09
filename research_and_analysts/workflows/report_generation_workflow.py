@@ -287,7 +287,7 @@ class AutonomousReportGenerator:
 
             builder.add_node("create_analyst", self.create_analyst)
             builder.add_node("human_feedback", self.human_feedback)
-            builder.add_node("generate_answer", interview_graph)
+            builder.add_node("conduct_interview", interview_graph)
             builder.add_node("write_report", self.write_report)
             builder.add_node("write_introduction", self.write_introduction)
             builder.add_node("write_conclusion", self.write_conclusion)
@@ -304,8 +304,8 @@ class AutonomousReportGenerator:
             builder.add_edge("conduct_interview", "write_introduction")
             builder.add_edge("conduct_interview", "write_conclusion")
 
-            builder.add_edge(["write_report", "write_introduction", "write_conclusion"],"final_report")
-            builder.add_edge("final_report", END)
+            builder.add_edge(["write_report", "write_introduction", "write_conclusion"],"finalize_report")
+            builder.add_edge("finalize_report", END)
 
             graph = builder.compile(interrupt_before=["human_feedback"], checkpointer=self.memory)
             self.logger.info("Report generation graph built successfully")

@@ -22,7 +22,7 @@ class ReportService:
             thread_id = str(uuid.uuid4())
             thread = {"configurable":{"thread_id":thread_id}}
             self.logger.info("Starting report pipeline", topic=topic, thread_id=thread_id)
-            for _ in self.graph({"topic":topic, "max_analysts":max_analyst}, thread, stream_mode="values"):
+            for _ in self.graph.stream({"topic":topic, "max_analysts":max_analyst}, thread, stream_mode="values"):
                 pass
             return {"thread_id":thread_id, "message":"Pipeline initiated successfully."}
         except Exception as e:

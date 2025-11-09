@@ -10,7 +10,7 @@ from datetime import datetime
 app = FastAPI(title="Autonomus Report Generation UI")
 
 app.mount("/static", StaticFiles(directory="static"), name="static")
-templates = Jinja2Templates(directory="research_and_analyst/api/templates")
+templates = Jinja2Templates(directory="research_and_analysts/api/templates")
 app.templates = templates
 
 def basename_filter(path:str):

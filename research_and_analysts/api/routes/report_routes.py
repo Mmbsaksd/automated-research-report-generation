@@ -27,7 +27,7 @@ async def login(request:Request, username:str = Form(...), password:str = Form(.
         session_id = f"{username}_session"
         SESSION[session_id] = username
         response = RedirectResponse(url="/dashboard", status_code=302)
-        response.set_cookie(key="session_id", value="session_id")
+        response.set_cookie(key="session_id", value=session_id)
         return response
     return request.app.templates.TemplateResponse(
         "login.html",
