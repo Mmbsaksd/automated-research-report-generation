@@ -283,7 +283,25 @@ class AutonomousReportGenerator:
             interview_graph = InterviewGraphBuilder(self.llm, self.tavily_search).build()
 
             def initiate_all_interview(state: ResearchGraphState):
-                pass
+                topic = state.get("topic","Untitled Topic")
+                analysts = state.get("analysts",[])
+                if not analysts:
+                    self.logger.warning("No analysts found — skipping interviews")
+                    return END
+                return [
+                    Send(
+                        "conduct_interview",
+                        {
+                            "analyst":analyst,
+                            "messages":[HumanMessage(content=f"So, let's discuss about {topic}")],
+                            "max_num_turns":2,
+                            "context":[],
+                            "interview":"",
+                            "sections":[],
+                        }
+                    )
+                    for analyst in analysts
+                ]
 
             builder.add_node("create_analyst", self.create_analyst)
             builder.add_node("human_feedback", self.human_feedback)
