@@ -7,6 +7,7 @@ from research_and_analysts.utils.config_loader import load_config
 from langchain_google_genai import GoogleGenerativeAIEmbeddings, ChatGoogleGenerativeAI
 from langchain_groq import ChatGroq
 from langchain_openai import ChatOpenAI
+from langchain_openai import AzureOpenAIEmbeddings, AzureChatOpenAI
 from research_and_analysts.logger import GLOBAL_LOGGER as log
 from research_and_analysts.exceptions.custom_exception import ResearchAnalystException
 import asyncio
@@ -22,9 +23,16 @@ else:
 class ApiKeyManager:
     def __init__(self):
         self.api_keys = {
-            "GOOGLE_API_KEY":os.getenv("GOOGLE_API_KEY"),
+            "GOOGLE_API_KEY": os.getenv("GOOGLE_API_KEY"),
             "GROQ_API_KEY": os.getenv("GROQ_API_KEY"),
-            "OPENAI_API_KEY": os.getenv("OPENAI_API_KEY")
+            "OPENAI_API_KEY": os.getenv("OPENAI_API_KEY"),
+
+            # Azure (FIXED)
+            "AZURE_OPENAI_API_KEY": os.getenv("AZURE_OPENAI_API_KEY"),
+            "AZURE_OPENAI_ENDPOINT": os.getenv("AZURE_OPENAI_ENDPOINT"),
+            "AZURE_OPENAI_API_VERSION": os.getenv("AZURE_OPENAI_API_VERSION"),
+            "AZURE_OPENAI_DEPLOYMENT_NAME": os.getenv("AZURE_OPENAI_DEPLOYMENT_NAME"),
+            "AZURE_OPENAI_EMBEDDING_DEPLOYMENT_NAME": os.getenv("AZURE_OPENAI_EMBEDDING_DEPLOYMENT_NAME"),
         }
         for key,val in self.api_keys.items():
             if val:
@@ -41,24 +49,29 @@ class ModelLoader:
         self.config = load_config()
         log.info("YAML config loaded", config_keys=list(self.config.keys()))
 
+
+
     def load_embeddings(self):
         try:
-            model_name = self.config["embedding_model"]["model_name"]
-            log.info("Loading embedding model", model=model_name)
+            embedding_cfg = self.config["embedding_model"]
+            deployment_env = embedding_cfg["deployment_name_env"]
+            deployment_name = os.getenv(deployment_env)
 
-            try:
-                asyncio.get_running_loop()
-            except Exception as e:
-                asyncio.set_event_loop(asyncio.new_event_loop())
+            if not deployment_name:
+                raise ValueError(f"Missing embedding deployment env: {deployment_env}")
 
-            return GoogleGenerativeAIEmbeddings(
-                model=model_name,
-                google_api_key = self.api_key_mgr.get("GOOGLE_API_KEY")
+            return AzureOpenAIEmbeddings(
+                azure_deployment=deployment_name,
+                azure_endpoint=self.api_key_mgr.get("AZURE_OPENAI_ENDPOINT"),
+                api_key=self.api_key_mgr.get("AZURE_OPENAI_API_KEY"),
+                api_version=self.api_key_mgr.get("AZURE_OPENAI_API_VERSION"),
             )
-        
+
         except Exception as e:
-            log.error("Error loading embedding model", error=str(e))
-            raise ResearchAnalystException("Failed to load embedding model",sys)
+            log.error("Error loading Azure embedding model", error=str(e))
+            raise ResearchAnalystException("Failed to load Azure embedding model", sys)
+
+
         
     def load_llm(self):
         llm_block = self.config["llm"]
@@ -75,8 +88,23 @@ class ModelLoader:
         max_tokens = llm_config.get("max_output_tokens", 2048)
 
         log.info("Loading LLM", provider=provider, model=model_name)
+        if provider == "azure":
+            deployment_env = llm_config["deployment_name_env"]
+            deployment_name = os.getenv(deployment_env)
 
-        if provider=="google":
+            if not deployment_name:
+                raise ValueError(f"Missing Azure deployment env: {deployment_env}")
+
+            return AzureChatOpenAI(
+                azure_deployment=deployment_name,
+                azure_endpoint=self.api_key_mgr.get("AZURE_OPENAI_ENDPOINT"),
+                api_key=self.api_key_mgr.get("AZURE_OPENAI_API_KEY"),
+                api_version=self.api_key_mgr.get("AZURE_OPENAI_API_VERSION"),
+                temperature=temperature,
+            )
+
+
+        elif provider=="google":
             return ChatGoogleGenerativeAI(
                 model=model_name,
                 google_api_key=self.api_key_mgr.get("GOOGLE_API_KEY"),
